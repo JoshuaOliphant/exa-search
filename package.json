@@ -2,16 +2,20 @@
   "$schema": "https://www.raycast.com/schemas/extension.json",
   "name": "exa-search",
   "title": "Exa AI Search",
-  "description": "Search the web using Exa's AI-powered search API",
+  "description": "Search the web using Exa's AI-powered search. Get relevant results instantly with real-time or manual search modes.",
   "icon": "extension-icon.png",
-  "author": "your-name",
-  "categories": ["Web", "Productivity"],
+  "author": "joshuaoliphant",
+  "categories": [
+    "Web",
+    "Productivity",
+    "Applications"
+  ],
   "license": "MIT",
   "commands": [
     {
       "name": "exa-search",
       "title": "Search Exa",
-      "description": "Search the web using Exa's AI",
+      "description": "Search the web using Exa's AI-powered semantic search",
       "mode": "view"
     }
   ],
