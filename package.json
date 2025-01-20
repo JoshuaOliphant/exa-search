@@ -2,7 +2,7 @@
   "$schema": "https://www.raycast.com/schemas/extension.json",
   "name": "exa-search",
   "title": "Exa AI Search",
-  "description": "Search the web using Exa's AI-powered search. Get relevant results instantly with real-time or manual search modes.",
+  "description": "Search the web using Exa's AI-powered search. Get relevant results instantly via the Exa AI API.",
   "icon": "extension-icon.png",
   "author": "joshuaoliphant",
   "categories": [
@@ -63,7 +63,7 @@
     "typescript": "^4.4.3"
   },
   "scripts": {
-    "build": "ray build -e src/exa-search.tsx",
+    "build": "ray build",
     "dev": "ray develop",
     "fix-lint": "ray lint --fix",
     "lint": "ray lint",

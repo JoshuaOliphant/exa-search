@@ -6,14 +6,12 @@ import {
   showToast,
   Toast,
   Icon,
-  LocalStorage,
 } from "@raycast/api";
-import React, { useState, useEffect } from "react";
+import { useState } from "react";
 import fetch from "node-fetch";
 
 type Preferences = {
   exaApiKey: string;
-  searchMode: "realtime" | "manual";
 };
 
 type ExaSearchResult = {
@@ -25,13 +23,9 @@ type ExaSearchResult = {
   published_date?: string;
 };
 
-type ExaApiResponse = {
+interface ExaSearchResponse {
   results: ExaSearchResult[];
-  total: number;
-};
-
-// LocalStorage key for search mode
-const SEARCH_MODE_STORAGE_KEY = "exa-search-mode";
+}
 
 export default function Command() {
   const [searchText, setSearchText] = useState("");
@@ -40,41 +34,8 @@ export default function Command() {
   const [error, setError] = useState<string | null>(null);
   const minQueryLength = 3;
 
-  // Get initial preferences
+  // Get preferences
   const preferences = getPreferenceValues<Preferences>();
-  
-  // State for search mode with localStorage
-  const [searchMode, setSearchMode] = useState<"realtime" | "manual">(preferences.searchMode);
-
-  // Load stored search mode on mount
-  useEffect(() => {
-    async function loadStoredMode() {
-      try {
-        const storedMode = await LocalStorage.getItem<string>(SEARCH_MODE_STORAGE_KEY);
-        if (storedMode === "realtime" || storedMode === "manual") {
-          setSearchMode(storedMode);
-        }
-      } catch (error) {
-        console.error("Error loading search mode:", error);
-      }
-    }
-    loadStoredMode();
-  }, []);
-
-  // Function to toggle search mode
-  async function toggleSearchMode() {
-    const newMode = searchMode === "realtime" ? "manual" : "realtime";
-    setSearchMode(newMode);
-    try {
-      await LocalStorage.setItem(SEARCH_MODE_STORAGE_KEY, newMode);
-      showToast({
-        style: Toast.Style.Success,
-        title: `Switched to ${newMode === "realtime" ? "real-time" : "manual"} search`,
-      });
-    } catch (error) {
-      console.error("Error saving search mode:", error);
-    }
-  }
 
   async function searchExa(query: string) {
     if (!query || query.trim().length < minQueryLength) {
@@ -106,7 +67,7 @@ export default function Command() {
         throw new Error(`API error ${response.status}: ${errorBody}`);
       }
 
-      const data = await response.json();
+      const data = (await response.json()) as ExaSearchResponse;
       setResults(data.results || []);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "An error occurred";
@@ -124,103 +85,62 @@ export default function Command() {
     }
   }
 
-  useEffect(() => {
-    if (searchMode !== "realtime") {
-      return;
-    }
+  function renderActionPanel() {
+    return (
+      <ActionPanel>
+        <ActionPanel.Section>
+          <Action
+            title="Search"
+            onAction={() => searchExa(searchText)}
+            shortcut={{ modifiers: [], key: "return" }}
+            icon={Icon.MagnifyingGlass}
+          />
+          <Action.OpenInBrowser
+            title="View Exa API Documentation"
+            url="https://docs.exa.ai/reference/search"
+            icon={Icon.Document}
+          />
+        </ActionPanel.Section>
+      </ActionPanel>
+    );
+  }
 
-    if (searchText.trim().length < minQueryLength) {
-      setResults([]);
-      return;
-    }
-
-    const timeoutId = setTimeout(() => {
-      searchExa(searchText);
-    }, 500);
-
-    return () => clearTimeout(timeoutId);
-  }, [searchText, searchMode]);
-
-  return (
-    <List
-      isLoading={isLoading}
-      onSearchTextChange={handleSearchTextChange}
-      searchBarPlaceholder={
-        searchMode === "manual" 
-          ? "Type and press ↵ to search with Exa AI..." 
-          : "Start typing to search with Exa AI..."
-      }
-      throttle
-      searchBarAccessory={
-        <List.Dropdown
-          tooltip="Search Mode"
-          value={searchMode}
-          onChange={async (newValue) => {
-            const mode = newValue as "realtime" | "manual";
-            setSearchMode(mode);
-            await LocalStorage.setItem(SEARCH_MODE_STORAGE_KEY, mode);
-            showToast({
-              style: Toast.Style.Success,
-              title: `Switched to ${mode === "realtime" ? "real-time" : "manual"} search`,
-            });
-          }}
-        >
-          <List.Dropdown.Item title="Real-time Search" value="realtime" icon={Icon.Play} />
-          <List.Dropdown.Item title="Manual Search" value="manual" icon={Icon.Pause} />
-        </List.Dropdown>
-      }
-      actions={
-        <ActionPanel>
-          <ActionPanel.Section>
-            {searchMode === "manual" && (
-              <Action
-                title="Search"
-                onAction={() => searchExa(searchText)}
-                shortcut={{ modifiers: [], key: "return" }}
-                icon={Icon.MagnifyingGlass}
-              />
-            )}
-            <Action
-              title={`Switch to ${searchMode === "realtime" ? "manual" : "real-time"} search`}
-              onAction={toggleSearchMode}
-              shortcut={{ modifiers: ["cmd"], key: "t" }}
-              icon={searchMode === "realtime" ? Icon.Pause : Icon.Play}
-            />
-          </ActionPanel.Section>
-          <ActionPanel.Section>
-            <Action.OpenInBrowser
-              title="View Exa API Documentation"
-              url="https://docs.exa.ai/reference/search"
-              icon={Icon.Document}
-            />
-          </ActionPanel.Section>
-        </ActionPanel>
-      }
-    >
-      {error ? (
+  function renderEmptyView() {
+    if (error) {
+      return (
         <List.EmptyView
           icon={Icon.ExclamationMark}
           title="Error"
           description={error}
         />
-      ) : results.length === 0 ? (
-        <List.EmptyView
-          icon={Icon.MagnifyingGlass}
-          title={
-            !searchText.trim()
-              ? "Enter your search terms"
-              : searchText.trim().length < minQueryLength
-              ? `Type at least ${minQueryLength} characters`
-              : searchMode === "manual"
-              ? "Press ↵ to search"
-              : "No results found"
-          }
-          description={
-            searchMode === "manual"
-              ? "Press ↵ to search or ⌘T to toggle search mode"
-              : "Results will appear as you type. Press ⌘T to toggle search mode"
-          }
-        />
+      );
+    }
+
+    return (
+      <List.EmptyView
+        icon={Icon.MagnifyingGlass}
+        title={
+          !searchText.trim()
+            ? "Enter your search terms"
+            : searchText.trim().length < minQueryLength
+            ? `Type at least ${minQueryLength} characters`
+            : "Press ↵ to search"
+        }
+        description="Press ↵ to search"
+      />
+    );
+  }
+
+  return (
+    <List
+      isLoading={isLoading}
+      onSearchTextChange={handleSearchTextChange}
+      searchBarPlaceholder="Type and press ↵ to search with Exa AI..."
+      throttle
+      actions={renderActionPanel()}
+    >
+      {results.length === 0 ? (
+        renderEmptyView()
       ) : (
         results.map((item) => (
           <List.Item
@@ -243,12 +163,6 @@ export default function Command() {
                     content={item.url}
                     title="Copy Link"
                     shortcut={{ modifiers: ["cmd"], key: "c" }}
-                  />
-                  <Action
-                    title={`Switch to ${searchMode === "realtime" ? "manual" : "real-time"} search`}
-                    onAction={toggleSearchMode}
-                    shortcut={{ modifiers: ["cmd"], key: "t" }}
-                    icon={searchMode === "realtime" ? Icon.Pause : Icon.Play}
                   />
                 </ActionPanel.Section>
               </ActionPanel>
